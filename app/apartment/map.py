@@ -19,19 +19,19 @@ def run():
     df = load_data()
 
     # --------------------------------------------
-    # 🎛️ 필터 설정
+    # 🎛️ 필터 설정 (2행 구조)
     # --------------------------------------------
-    col1, col2, col3, col4 = st.columns(4)
-    col5, col6, col7 = st.columns(3)
-
     filters = {}
 
+    col1, col2, col3 = st.columns(3)
     with col1:
         filters["난방방식"] = st.selectbox("난방방식", ["전체"] + sorted(df["난방방식"].dropna().unique()))
     with col2:
         filters["난방연료"] = st.selectbox("난방연료", ["전체"] + sorted(df["난방연료"].dropna().unique()))
     with col3:
         filters["난방공급업체"] = st.selectbox("난방공급업체", ["전체"] + sorted(df["난방공급업체"].dropna().unique()))
+
+    col4, col5, col6, col7 = st.columns(4)
     with col4:
         filters["고시지역여부"] = st.selectbox("고시지역여부", ["전체", "True", "False"])
     with col5:
@@ -95,14 +95,31 @@ def run():
 
     color_column = get_color_by(filtered, filters)
 
+    color_map = {}
+    if color_column == "난방방식":
+        color_map = {
+            "개별난방": "gray",
+            "지역난방": "red",
+            "중앙난방": "blue"
+        }
+
     fig = px.scatter_mapbox(
         map_df,
         lat="위도", lon="경도",
         color=color_column,
         hover_name="단지명",
-        hover_data=["세대수", "난방방식", "난방연료", "난방공급업체", "고시지역명"],
+        hover_data={
+            "세대수": True,
+            "난방방식": True,
+            "난방연료": True,
+            "난방공급업체": True,
+            "고시지역명": True,
+            "위도": False,
+            "경도": False
+        },
         zoom=10,
-        height=600
+        height=600,
+        color_discrete_map=color_map
     )
 
     # 고시지역 geojson 추가
@@ -125,18 +142,25 @@ def run():
     fig.update_layout(
         mapbox_style="carto-positron",
         mapbox=dict(center=dict(lat=center_lat, lon=center_lon)),
-        margin={"r": 0, "t": 0, "l": 0, "b": 0}
+        margin={"r": 0, "t": 0, "l": 0, "b": 0},
+        legend=dict(
+            x=0,
+            y=1,
+            xanchor="left",
+            yanchor="top"
+        )
     )
 
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, config={"scrollZoom": True})
 
     # --------------------------------------------
-    # 📋 데이터 테이블
+    # 📋 데이터 테이블 (접이식)
     # --------------------------------------------
-    st.dataframe(
-        filtered[["단지명", "세대수", "난방방식", "난방연료", "난방공급업체", "고시지역명"]],
-        use_container_width=True,
-        height=400
-    )
+    with st.expander("📋 상세 데이터 보기", expanded=False):
+        st.dataframe(
+            filtered[["단지명", "세대수", "난방방식", "난방연료", "난방공급업체", "고시지역명"]],
+            use_container_width=True,
+            height=400
+        )
 
     st.caption("© 2025 공동주택 대시보드")
