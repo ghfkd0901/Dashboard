@@ -22,7 +22,6 @@ notebooks/
 # ---------------------------------------------
 # 특정 파일만 무시
 data/sales/rest_sales/sale_merged_with_geo.csv
-data/sales/raw/
 *.bak
 *.old
 *.zip
