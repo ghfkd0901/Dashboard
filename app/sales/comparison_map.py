@@ -35,7 +35,10 @@ def run():
         df["증감"] = df["증감"].fillna(0)
         df["증감률"] = df["증감률"].fillna(0)
         df["상태"] = df["상태"].fillna("유지")
-        df["당년판매량"] = df["당년판매량"].apply(lambda x: x if x > 0 else 0)
+
+        # 마커 크기: 해지는 전년 판매량 기준, 그 외는 당년 판매량 기준
+        df["마커크기"] = df.apply(lambda row: row["당년판매량"] if row["상태"] != "해지" else row["전년동월판매량"], axis=1)
+        df["마커크기"] = df["마커크기"].apply(lambda x: max(x, 10))
 
     except FileNotFoundError:
         st.error(f"❌ 파일을 찾을 수 없습니다: {file_path}")
@@ -44,7 +47,6 @@ def run():
     # --------------------------------------------
     # 4. 필터 섹션 (가로 배치)
     # --------------------------------------------
-
     col1, col2, col3, col4, col5, col6 = st.columns(6)
 
     with col1:
@@ -114,19 +116,20 @@ def run():
         df_map,
         lat="위도",
         lon="경도",
-        size="당년판매량",
+        size="마커크기",
         size_max=25,
         color="상태",
         color_discrete_map=color_map,
         hover_name="고객명",
         hover_data={
+            "상태": True,
+            "당년판매량": True,
+            "전년동월판매량": True,
+            "증감": True,
+            "증감률": True,
             "상품명": True,
             "용도": True,
             "업종": True,
-            "전년동월판매량": True,
-            "당년판매량": True,
-            "증감": True,
-            "증감률": True,
             "위도": False,
             "경도": False
         },
