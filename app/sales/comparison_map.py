@@ -1,29 +1,158 @@
 import streamlit as st
 import pandas as pd
-import folium
-from streamlit_folium import st_folium
+import plotly.express as px
+from pathlib import Path
+
 
 def run():
-    st.title("📉 Year-over-Year Sales Comparison")
+    st.title("📉 전년동월 판매량 비교 대시보드")
 
-    try:
-        df = pd.read_csv("data/sale_comparison_map/sales_comparison.csv")
-    except:
-        st.warning("⚠️ sales_comparison.csv not found in data/sale_comparison_map/")
+    # --------------------------------------------
+    # 1. 파일 목록에서 월 추출
+    # --------------------------------------------
+    data_dir = Path("data/sales/rest_sales/yoy_comparsion")
+    file_list = sorted(data_dir.glob("yoy_comparison_*.csv"))
+    available_months = [f.stem.split("_")[-1] for f in file_list]
+
+    if not available_months:
+        st.warning("⚠️ 전년동월 비교 파일이 존재하지 않습니다.")
         return
 
-    st.write("Preview of sales comparison data", df.head())
+    # --------------------------------------------
+    # 2. 기준 월 선택
+    # --------------------------------------------
+    selected_month = st.selectbox("📅 기준 월 선택", available_months, index=len(available_months) - 1)
 
-    m = folium.Map(location=[35.8722, 128.6025], zoom_start=11)
+    # --------------------------------------------
+    # 3. 파일 로딩 + NaN/음수 처리
+    # --------------------------------------------
+    file_path = data_dir / f"yoy_comparison_{selected_month}.csv"
+    try:
+        df = pd.read_csv(file_path, encoding="utf-8-sig")
 
-    for _, row in df.iterrows():
-        folium.CircleMarker(
-            location=[row["lat"], row["lon"]],
-            radius=6,
-            popup=f"{row['name']} ({row['change_rate']}%)",
-            color='green' if row["change_rate"] >= 0 else 'red',
-            fill=True,
-            fill_opacity=0.6
-        ).add_to(m)
+        df["전년동월판매량"] = df["전년동월판매량"].fillna(0)
+        df["당년판매량"] = df["당년판매량"].fillna(0)
+        df["증감"] = df["증감"].fillna(0)
+        df["증감률"] = df["증감률"].fillna(0)
+        df["상태"] = df["상태"].fillna("유지")
+        df["당년판매량"] = df["당년판매량"].apply(lambda x: x if x > 0 else 0)
 
-    st_folium(m, width=700, height=500)
+    except FileNotFoundError:
+        st.error(f"❌ 파일을 찾을 수 없습니다: {file_path}")
+        return
+
+    # --------------------------------------------
+    # 4. 필터 섹션 (가로 배치)
+    # --------------------------------------------
+
+    col1, col2, col3, col4, col5, col6 = st.columns(6)
+
+    with col1:
+        selected_product = st.multiselect("상품명", sorted(df['상품명'].dropna().unique()))
+
+    with col2:
+        selected_usage = st.multiselect("용도", sorted(df['용도'].dropna().unique()))
+
+    if selected_usage:
+        category1_options = sorted(df[df['용도'].isin(selected_usage)]['업종분류'].dropna().unique())
+    else:
+        category1_options = sorted(df['업종분류'].dropna().unique())
+
+    with col3:
+        selected_category1 = st.multiselect("업종분류", category1_options)
+
+    if selected_category1:
+        category2_options = sorted(df[df['업종분류'].isin(selected_category1)]['업종'].dropna().unique())
+    else:
+        category2_options = sorted(df['업종'].dropna().unique())
+
+    with col4:
+        selected_category2 = st.multiselect("업종", category2_options)
+
+    with col5:
+        selected_status = st.multiselect("상태", sorted(df["상태"].dropna().unique()))
+
+    with col6:
+        st.markdown(" ")  # 공간 유지용
+
+    # --------------------------------------------
+    # 5. 필터 적용
+    # --------------------------------------------
+    filtered_df = df.copy()
+    if selected_product:
+        filtered_df = filtered_df[filtered_df['상품명'].isin(selected_product)]
+    if selected_usage:
+        filtered_df = filtered_df[filtered_df['용도'].isin(selected_usage)]
+    if selected_category1:
+        filtered_df = filtered_df[filtered_df['업종분류'].isin(selected_category1)]
+    if selected_category2:
+        filtered_df = filtered_df[filtered_df['업종'].isin(selected_category2)]
+    if selected_status:
+        filtered_df = filtered_df[filtered_df['상태'].isin(selected_status)]
+
+    # --------------------------------------------
+    # 6. 색상 맵 정의
+    # --------------------------------------------
+    color_map = {
+        "해지": "red",
+        "신규": "blue",
+        "유지": "gray"
+    }
+
+    # --------------------------------------------
+    # 7. 지도 시각화
+    # --------------------------------------------
+    df_map = filtered_df.dropna(subset=["위도", "경도"])
+    if df_map.empty:
+        st.warning("⚠️ 지도에 표시할 데이터가 없습니다.")
+        return
+
+    center_lat = df_map["위도"].mean()
+    center_lon = df_map["경도"].mean()
+
+    fig = px.scatter_mapbox(
+        df_map,
+        lat="위도",
+        lon="경도",
+        size="당년판매량",
+        size_max=25,
+        color="상태",
+        color_discrete_map=color_map,
+        hover_name="고객명",
+        hover_data={
+            "상품명": True,
+            "용도": True,
+            "업종": True,
+            "전년동월판매량": True,
+            "당년판매량": True,
+            "증감": True,
+            "증감률": True,
+            "위도": False,
+            "경도": False
+        },
+        zoom=10,
+        height=600
+    )
+
+    fig.update_layout(
+        mapbox_style="carto-positron",
+        mapbox_center={"lat": center_lat, "lon": center_lon},
+        margin={"r": 0, "t": 30, "l": 0, "b": 0}
+    )
+
+    st.plotly_chart(fig, use_container_width=True, config={"scrollZoom": True})
+
+    # --------------------------------------------
+    # 8. 상세 테이블
+    # --------------------------------------------
+    with st.expander("📋 상세 데이터 보기", expanded=False):
+        st.dataframe(
+            filtered_df[[
+                "고객명", "상품명", "용도", "업종",
+                "전년동월판매량", "당년판매량", "증감", "증감률", "상태"
+            ]],
+            use_container_width=True,
+            height=400
+        )
+
+    st.caption("© 2025 전년동월 판매량 비교 대시보드")
