@@ -1,6 +1,6 @@
 import streamlit as st
 from app.apartment import map as apart_map
-from app.sales import comparison_map
+from app.sales import comparison_map as comparison_map
 
 st.set_page_config(page_title="Sales Dashboard", layout="wide")
 
