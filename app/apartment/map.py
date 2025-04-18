@@ -10,7 +10,7 @@ def run():
     # 데이터 로딩
     @st.cache_data
     def load_data():
-        path = r"D:\Streamlit_Project\Dashboard\data\apartment\apart_info.csv"
+        path = "data/apartment/apart_info.csv"
         try:
             return pd.read_csv(path, encoding="utf-8")
         except:
@@ -106,7 +106,7 @@ def run():
     )
 
     # 고시지역 geojson 추가
-    with open(r"D:\Streamlit_Project\Dashboard\data\apartment\gosi_region.geojson", encoding="utf-8") as f:
+    with open("data/apartment/gosi_region.geojson", encoding="utf-8") as f:
         geojson_data = json.load(f)
 
     locations = [feature["properties"]["Name"] for feature in geojson_data["features"]]
