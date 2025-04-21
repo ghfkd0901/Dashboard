@@ -136,7 +136,8 @@ def run():
         marker_line_color="red",
         marker_line_width=1,
         featureidkey="properties.Name",
-        name="고시지역"
+        name="고시지역",
+        hoverinfo='skip'
     ))
 
     fig.update_layout(
