@@ -10,7 +10,7 @@ def run():
     # 데이터 로딩
     @st.cache_data
     def load_data():
-        path = "data/apartment/apart_info.csv"
+        path = "data/apartment/apart_info_vworld.csv"
         try:
             return pd.read_csv(path, encoding="utf-8")
         except:

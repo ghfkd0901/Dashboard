@@ -1,6 +1,6 @@
 import streamlit as st
 from app.apartment import map as apart_map
-from app.sales import comparison_map as comparison_map
+from app.sales import comparison_map_by_customer as comparison_map_by_customer  # 고객명 기준만 사용
 
 st.set_page_config(page_title="Sales Dashboard", layout="wide")
 
@@ -17,7 +17,9 @@ if main_category == "🏢 Apartment":
         apart_map.run()
 
 elif main_category == "📉 Sales":
-    sub_page = st.sidebar.radio("Sales Pages", ["📉 YoY Comparison"])
+    sub_page = st.sidebar.radio("Sales Pages", [
+        "👥 YoY Comparison (Customer)"  # ✅ 고객명 기준만 노출
+    ])
 
-    if sub_page == "📉 YoY Comparison":
-        comparison_map.run()
+    if sub_page == "👥 YoY Comparison (Customer)":
+        comparison_map_by_customer.run()

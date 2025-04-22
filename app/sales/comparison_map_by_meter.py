@@ -10,7 +10,7 @@ def run():
     # --------------------------------------------
     # 1. 파일 목록에서 월 추출
     # --------------------------------------------
-    data_dir = Path("data/sales/rest_sales/yoy_comparsion")
+    data_dir = Path("data/sales/rest_sales/yoy_comparsion/by_meter")
     file_list = sorted(data_dir.glob("yoy_comparison_*.csv"))
     available_months = [f.stem.split("_")[-1] for f in file_list]
 
@@ -35,8 +35,8 @@ def run():
         df["증감"] = df["증감"].fillna(0)
         df["증감률"] = df["증감률"].fillna(0)
         df["상태"] = df["상태"].fillna("유지")
+        df["증감범주"] = df["증감범주"].fillna("정상")
 
-        # 마커 크기: 해지는 전년 판매량 기준, 그 외는 당년 판매량 기준
         df["마커크기"] = df.apply(lambda row: row["당년판매량"] if row["상태"] != "해지" else row["전년동월판매량"], axis=1)
         df["마커크기"] = df["마커크기"].apply(lambda x: max(x, 10))
 
@@ -95,10 +95,17 @@ def run():
     # --------------------------------------------
     # 6. 색상 맵 정의
     # --------------------------------------------
-    color_map = {
+    status_color_map = {
         "해지": "red",
         "신규": "blue",
-        "유지": "gray"
+        "유지": "green"
+    }
+
+    change_color_map = {
+        "20% 이상 증가": "blue",
+        "20% 이상 감소": "red",
+        "유지": "green",
+        None: "lightgray"
     }
 
     # --------------------------------------------
@@ -112,30 +119,56 @@ def run():
     center_lat = df_map["위도"].mean()
     center_lon = df_map["경도"].mean()
 
-    fig = px.scatter_mapbox(
-        df_map,
-        lat="위도",
-        lon="경도",
-        size="마커크기",
-        size_max=25,
-        color="상태",
-        color_discrete_map=color_map,
-        hover_name="고객명",
-        hover_data={
-            "상태": True,
-            "당년판매량": True,
-            "전년동월판매량": True,
-            "증감": True,
-            "증감률": True,
-            "상품명": True,
-            "용도": True,
-            "업종": True,
-            "위도": False,
-            "경도": False
-        },
-        zoom=10,
-        height=600
-    )
+    if selected_status == ["유지"]:
+        fig = px.scatter_mapbox(
+            df_map,
+            lat="위도",
+            lon="경도",
+            size="마커크기",
+            size_max=25,
+            color="증감범주",
+            color_discrete_map=change_color_map,
+            hover_name="고객명",
+            hover_data={
+                "고객명": True,
+                "상품명": True,
+                "용도": True,
+                "업종": True,
+                "전년동월판매량": True,
+                "당년판매량": True,
+                "증감": True,
+                "증감률": True,
+                "증감범주": True,
+                "상태": True
+            },
+            zoom=10,
+            height=600
+        )
+    else:
+        fig = px.scatter_mapbox(
+            df_map,
+            lat="위도",
+            lon="경도",
+            size="마커크기",
+            size_max=25,
+            color="상태",
+            color_discrete_map=status_color_map,
+            hover_name="고객명",
+            hover_data={
+                "고객명": True,
+                "상품명": True,
+                "용도": True,
+                "업종": True,
+                "전년동월판매량": True,
+                "당년판매량": True,
+                "증감": True,
+                "증감률": True,
+                "증감범주": True,
+                "상태": True
+            },
+            zoom=10,
+            height=600
+        )
 
     fig.update_layout(
         mapbox_style="carto-positron",
@@ -150,9 +183,9 @@ def run():
     # --------------------------------------------
     with st.expander("📋 상세 데이터 보기", expanded=False):
         st.dataframe(
-            filtered_df[[
+            filtered_df[[  # 열 순서 자유롭게 변경 가능
                 "고객명", "상품명", "용도", "업종",
-                "전년동월판매량", "당년판매량", "증감", "증감률", "상태"
+                "전년동월판매량", "당년판매량", "증감", "증감률", "증감범주", "상태"
             ]],
             use_container_width=True,
             height=400
