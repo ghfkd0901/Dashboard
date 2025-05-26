@@ -3,7 +3,6 @@ import pandas as pd
 import plotly.express as px
 from pathlib import Path
 
-
 def run():
     st.title("📉 전년동월 판매량 비교 대시보드")
 
@@ -45,8 +44,11 @@ def run():
         return
 
     # --------------------------------------------
-    # 4. 필터 섹션 (가로 배치)
+    # 4. 필터 섹션
     # --------------------------------------------
+    st.markdown("---")
+    st.subheader("📊 검색 필터")
+
     col1, col2, col3, col4, col5, col6 = st.columns(6)
 
     with col1:
@@ -75,12 +77,13 @@ def run():
         selected_status = st.multiselect("상태", sorted(df["상태"].dropna().unique()))
 
     with col6:
-        st.markdown(" ")  # 공간 유지용
+        selected_change_category = st.multiselect("증감범주", sorted(df["증감범주"].dropna().unique()))
 
     # --------------------------------------------
     # 5. 필터 적용
     # --------------------------------------------
     filtered_df = df.copy()
+
     if selected_product:
         filtered_df = filtered_df[filtered_df['상품명'].isin(selected_product)]
     if selected_usage:
@@ -91,9 +94,61 @@ def run():
         filtered_df = filtered_df[filtered_df['업종'].isin(selected_category2)]
     if selected_status:
         filtered_df = filtered_df[filtered_df['상태'].isin(selected_status)]
+    if selected_change_category:
+        filtered_df = filtered_df[filtered_df['증감범주'].isin(selected_change_category)]
+
+    if filtered_df.empty:
+        st.warning("⚠️ 선택한 조건에 맞는 데이터가 없습니다.")
+        return
 
     # --------------------------------------------
-    # 6. 색상 맵 정의
+    # 6. 🧡 카드 요약 영역
+    # --------------------------------------------
+    st.markdown("---")
+    st.subheader("📋 요약 카드")
+
+    count_유지 = filtered_df[filtered_df['상태'] == '유지'].shape[0]
+    count_신규 = filtered_df[filtered_df['상태'] == '신규'].shape[0]
+    count_해지 = filtered_df[filtered_df['상태'] == '해지'].shape[0]
+
+    total_전년동월 = int(filtered_df["전년동월판매량"].sum())
+    total_당월 = int(filtered_df["당년판매량"].sum())
+    total_증감 = int(filtered_df["증감"].sum())
+
+    if total_전년동월 != 0:
+        avg_증감률 = (total_증감 / total_전년동월) * 100
+    else:
+        avg_증감률 = 0
+
+    # 고객 수 카드
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        st.metric(label="유지 고객 수", value=f"{count_유지:,}")
+
+    with col2:
+        st.metric(label="신규 고객 수", value=f"{count_신규:,}")
+
+    with col3:
+        st.metric(label="해지 고객 수", value=f"{count_해지:,}")
+
+    # 판매량 카드
+    col4, col5, col6, col7 = st.columns(4)
+
+    with col4:
+        st.metric(label="전년동월 판매량(m³)", value=f"{total_전년동월:,}")
+
+    with col5:
+        st.metric(label="당월 판매량(m³)", value=f"{total_당월:,}")
+
+    with col6:
+        st.metric(label="증감(m³)", value=f"{total_증감:,}")
+
+    with col7:
+        st.metric(label="증감률(%)", value=f"{avg_증감률:.1f}%")
+
+    # --------------------------------------------
+    # 6. 지도 시각화
     # --------------------------------------------
     status_color_map = {
         "해지": "red",
@@ -108,14 +163,7 @@ def run():
         None: "lightgray"
     }
 
-    # --------------------------------------------
-    # 7. 지도 시각화
-    # --------------------------------------------
     df_map = filtered_df.dropna(subset=["위도", "경도"])
-    if df_map.empty:
-        st.warning("⚠️ 지도에 표시할 데이터가 없습니다.")
-        return
-
     center_lat = df_map["위도"].mean()
     center_lon = df_map["경도"].mean()
 
@@ -179,14 +227,18 @@ def run():
     st.plotly_chart(fig, use_container_width=True, config={"scrollZoom": True})
 
     # --------------------------------------------
-    # 8. 상세 테이블
+    # 7. 상세 테이블
     # --------------------------------------------
     with st.expander("📋 상세 데이터 보기", expanded=False):
+        display_df = filtered_df.sort_values(by=["증감", "증감률"], ascending=[False, False]).copy()
+
         st.dataframe(
-            filtered_df[[  # 열 순서 자유롭게 변경 가능
-                "고객명", "상품명", "용도", "업종",
-                "전년동월판매량", "당년판매량", "증감", "증감률", "증감범주", "상태"
-            ]],
+            display_df[
+                [
+                    "고객명", "상품명", "용도", "업종",
+                    "전년동월판매량", "당년판매량", "증감", "증감률", "증감범주", "상태"
+                ]
+            ],
             use_container_width=True,
             height=400
         )
